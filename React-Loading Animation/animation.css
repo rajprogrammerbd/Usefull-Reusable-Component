@@ -1,0 +1,32 @@
+@keyframes loading-animation {
+    0% { left: calc(0px - (var(--custom-width) / 2)); }
+    100% { left: calc(var(--width) - (var(--custom-width) / 2)); }
+}
+
+/* Custom Styles */
+
+body .loading-animation {
+    width: var(--width);
+    height: var(--height);
+    background-color: #eee;
+    position: relative;
+    z-index: 10;
+    overflow: hidden;
+    border-radius: 5px;
+}
+
+body .loading-animation > .inside-loading-animation {
+    position: absolute;
+    top: 0;
+    left: calc(0px - (var(--custom-width) / 2));
+    width: var( --custom-width);
+    height: var( --height);
+    z-index: 50;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(207,207,207,1) 52%, rgba(255,255,255,0) 100%);
+    animation-name: loading-animation;
+    animation-duration: 1.2s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate-reverse;
+    animation-timing-function: cubic-bezier(.43,.44,.72,.71);
+
+}
