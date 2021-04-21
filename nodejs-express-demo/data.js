@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const express = require("express");
 const chalk = require("chalk");
 const config = require("config");
+const helmet = require("helmet");
 
 mongoose.connect("mongodb://localhost/store", { useUnifiedTopology: true, useNewUrlParser: true, useFindAndModify: false }).then(() => console.log(chalk.bgCyan(chalk.white("Database is connected!")) )).catch(err => console.log(chalk.bgRed(chalk.white(`Database is not connected!`)) ));
 
@@ -39,13 +40,43 @@ const studentSchema = new mongoose.Schema({
 const Store = mongoose.model('store', storeSchme);
 const Students = mongoose.model('students', studentSchema);
 
+const authSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        minlength: 2,
+        maxlength: 60,
+        trim: true, 
+        required: true
+    },
+    bio: {
+        type: String,
+        required: true
+    }
+});
+
+const Auth = mongoose.model("Auth", authSchema);
+
+const Population_Course = mongoose.model('Population_Course', new mongoose.Schema({
+    name: {
+        type: String,
+        minlength: 2,
+        maxlength: 100,
+        trim: true,
+        required: true
+    },
+    author: {
+        type: authSchema,
+        required: true
+    }
+}));
+
 const placeSchema = new mongoose.Schema({
     name: { type: String, minlength: 2, maxlength: 255, require: function() { return true; } },
     catogory: { type: String, enum: ['visited', 'favorite', 'dislike'], required: true},
     reasons: {
         type: Array,
         validate: {
-            validator: function (v, callback) {
+            validator: function (v) {
                 return new Promise(async(resolve, reject) => {
                     const result = v && v.length > 0;
                     await Store.find().then(obj => resolve(result)).catch(err => reject(err.message));
@@ -55,6 +86,34 @@ const placeSchema = new mongoose.Schema({
         }
     }
 });
+
+function add_auth(name, bio) {
+    return new Promise(async (resolve, reject) => {
+        const author = new Auth({
+            name,
+            bio
+        });
+
+        await author.save().then(obj => resolve(obj)).catch(err => reject(err.message));
+    });
+}
+
+function createCourse(name, author) {
+    return new Promise(async (resolve, reject) => {
+        const result = new Population_Course({
+            name,
+            author
+        });
+
+        await result.save().then(obj => resolve(obj)).catch(err => reject(err.message));
+    });
+}
+
+function listCourse() {
+    return new Promise(async (resolve, reject) => {
+        await Population_Course.find().populate('author', 'name -_id').then(obj => resolve(obj)).catch(err => reject(err.message));
+    });
+}
 
 
 const Places = mongoose.model('place', placeSchema);
@@ -131,7 +190,7 @@ function getAllData() {
 async function getIimitData() {
     // const result = await Store.find({ value: { $in: [10, 60, 50] } }).sort({ name: 1 }).then(obj => console.log(obj)).catch(err => console.log(err.message));
     
-    const result = await Store.find().and([ { name: 'Lychee' }, { value: 20 } ]).sort({ name: 1 }).countDocuments().then(obj => console.log(obj)).catch(err => console.log(err.message));
+    await Store.find().and([ { name: 'Lychee' }, { value: 20 } ]).sort({ name: 1 }).countDocuments().then(obj => console.log(obj)).catch(err => console.log(err.message));
 }
 
 async function fineOnes(id) {
@@ -154,6 +213,7 @@ async function getterThan() {
 // Working with server
 const app = express();
 
+app.use(helmet());
 app.use(express.json());
 app.set('view engine', 'pug');
 app.set('views', './views');
@@ -163,7 +223,7 @@ app.get('/', function (req, res) {
 });
 
 app.get('/allData', async function(req, res) {
-    const result = await getAllData().then(result => res.send(result)).catch(err => res.status(500).send(err.message));
+    await getAllData().then(result => res.send(result)).catch(err => res.status(500).send(err.message));
 });
 
 app.post('/furits', async function(req, res) {
@@ -189,6 +249,22 @@ app.post('/places', async function (req, res) {
     const { name, catogory, reasons } = req.body;
 
     await addPlaces(name, catogory, reasons).then(obj => res.send(obj)).catch(err => res.status(500).send(err.message));
+});
+
+app.post('/auth', async (req, res) => {
+    const { name, bio } = req.body;
+
+    await add_auth(name, bio).then(obj => res.send(obj)).catch(err => res.status(500).send(err.message));
+});
+
+app.post('/population_courses', async (req, res) => {
+    const { name, author } = req.body;
+
+    await createCourse(name, author).then(obj => res.send(obj)).catch(err => res.status(500).send(err.message));
+});
+
+app.get('/getList', async (req, res) => {
+    await listCourse().then(obj => res.send(obj)).catch(err => res.status(500).send(err.message));
 });
 
 const port = process.env.PORT || 3000;
